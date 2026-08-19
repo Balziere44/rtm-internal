@@ -56,6 +56,19 @@
   let suppressPush = false;
   function applyIncoming(key, dataObj){
     if (dataObj === null || typeof dataObj !== "object") return;
+    // A store the server has nothing in must never empty a store this browser
+    // has something in. That is not a sync, it is a delete, and it is exactly
+    // what the first load against a server nobody has filled in yet would do:
+    // pull {}, write {}, and take the notes somebody wrote while the old
+    // server was unreachable with it.
+    if (!Object.keys(dataObj).length) {
+      let mine = {};
+      try { mine = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch(e) {}
+      if (Object.keys(mine).length) {
+        console.warn("[rtm-sync] server has no " + key + " yet - keeping this browser's copy");
+        return;
+      }
+    }
     suppressPush = true;
     try {
       localStorage.setItem(key, JSON.stringify(dataObj));
