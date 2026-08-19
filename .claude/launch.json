@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rtm-internal",
+      "runtimeExecutable": "C:\Users\Balziere\AppData\Local\Programs\Python\Python312\python.exe",
+      "runtimeArgs": ["-m", "http.server", "8788"],
+      "port": 8788
+    }
+  ]
+}
