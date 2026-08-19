@@ -7,6 +7,11 @@ generated from what this repository holds.
 Not a public site. It carries unreleased content, internal names, and the
 team's balance notes.
 
+Home is `github.com/Balziere44/rtm-internal`. The history before the first
+commit that added this file came from the tool's original repository, which is
+no longer a remote here and is not pushed to: a rebuilt tool arrives as a new
+`index.html` committed to this repository, from whoever rebuilt it.
+
 ## What is in here
 
 | File | What it is |
