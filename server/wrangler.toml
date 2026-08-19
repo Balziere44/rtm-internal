@@ -7,7 +7,7 @@ compatibility_date = "2026-08-01"
 # sign in failed everywhere the tool was hosted afterwards. Add an address
 # here and deploy; nothing else has to change.
 [vars]
-ALLOWED_ORIGINS = "https://balziere44.github.io,http://localhost:8788,http://127.0.0.1:8788"
+ALLOWED_ORIGINS = "https://rtm-internal.pages.dev,https://balziere44.github.io,http://localhost:8788,http://127.0.0.1:8788"
 
 [[durable_objects.bindings]]
 name = "HUB"
