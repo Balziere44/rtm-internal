@@ -40,7 +40,7 @@ async function credentials() {
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const ask = q => new Promise(resolve => rl.question(q, resolve));
-  const user = (await ask("admin user [Meta]: ")).trim() || "Meta";
+  const user = (await ask('admin username (just press Enter for "Meta"): ')).trim() || "Meta";
   process.stdout.write("password: ");
   const echo = rl._writeToOutput;
   rl._writeToOutput = () => {};              // do not print the password

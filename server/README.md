@@ -43,11 +43,15 @@ npx wrangler secret put ADMIN_PASS
 `wrangler login` opens a browser once. `deploy` prints the address it published
 to, something like `https://rtm-internal-api.<your-subdomain>.workers.dev`.
 
-`ADMIN_PASS` is the password for `Meta`, and the server creates that account
-the first time somebody signs in. Until the secret is set, every sign in
-answers *"server has no admin account"* rather than pretending the password
-was wrong. Set it and never think about it again: everybody else is created
-from inside the tool, and `Meta`'s own password can be changed there too.
+`ADMIN_PASS` is the password for `Meta`. The account is created the first time
+somebody signs in, and **setting the secret again changes the password** -
+running `secret put` is how it is rotated, which signs `Meta` out everywhere
+and leaves every other account and all the notes untouched. Until the secret is
+set, a sign in answers *"server has no admin account"* rather than pretending
+the password was wrong.
+
+Everybody else is created from inside the tool, by `Meta`, and their passwords
+are changed there too.
 
 Then carry over the notes the old VPS held, saved in `backup/`:
 

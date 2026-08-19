@@ -33,6 +33,11 @@ const STORES = ["item", "mob", "skill"];
 const SESSION_DAYS = 30;
 const KEEPALIVE_MS = 25000;    // under the 30s most proxies idle out at
 const ORIGIN_HEADER = "X-RTM-Origin";  // the Worker vouches for the origin to the object
+// The admin password travels the same way, per request, rather than being read
+// from the object's own env. An object captures env once, when it is created,
+// so a rotated secret would not reach a long-lived one - and whether it ever
+// gets recreated is a scheduling detail, not something to hang a password on.
+const ADMIN_HEADER = "X-RTM-Admin-Pass";
 
 /* ── CORS ──────────────────────────────────────────────────────────────── */
 
@@ -82,6 +87,10 @@ async function derive(pass, salt) {
   return hex(bits);
 }
 
+async function sha256(text) {
+  return hex(await crypto.subtle.digest("SHA-256", enc.encode(text)));
+}
+
 function token() {
   return hex(crypto.getRandomValues(new Uint8Array(32)));
 }
@@ -113,18 +122,37 @@ export class Hub {
       CREATE TABLE IF NOT EXISTS notes (
         store TEXT PRIMARY KEY, body TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS meta (
+        key TEXT PRIMARY KEY, value TEXT NOT NULL
+      );
     `);
   }
 
-  /* The admin account is created on first use from a secret, never from a
-   * committed file. Anything else would put a working password in a public
-   * repository, which is the shape of problem this whole move is undoing. */
+  /* The admin password is the ADMIN_PASS secret, and stays it. Setting the
+   * secret again is how that password is rotated - which is the first thing
+   * anybody reaches for, and in the first version of this it did nothing at
+   * all once the account existed, silently, with no way to tell from outside.
+   *
+   * A fingerprint of the secret is kept so the common case is one hash rather
+   * than a rewrite on every request. Rotating signs the admin out everywhere,
+   * which is the point of rotating.
+   *
+   * The password never comes from a committed file. That is how the previous
+   * five ended up public. */
   async bootstrap() {
-    const n = this.sql.exec("SELECT COUNT(*) AS n FROM users").one().n;
-    if (n > 0) return true;
-    const pass = this.env.ADMIN_PASS;
-    if (!pass) return false;
-    await this.addUser(ADMIN, pass);
+    const pass = this.adminPass;
+    if (!pass) {
+      return this.sql.exec("SELECT COUNT(*) AS n FROM users").one().n > 0;
+    }
+    const print = await sha256(pass);
+    const seen = this.sql.exec(
+      "SELECT value FROM meta WHERE key = 'admin_pass'").toArray();
+    if (!seen.length || seen[0].value !== print) {
+      await this.addUser(ADMIN, pass);
+      this.sql.exec("DELETE FROM sessions WHERE user = ?", ADMIN);
+      this.sql.exec(
+        "INSERT OR REPLACE INTO meta (key, value) VALUES ('admin_pass', ?)", print);
+    }
     return true;
   }
 
@@ -165,6 +193,7 @@ export class Hub {
   async fetch(req) {
     const url = new URL(req.url);
     const origin = req.headers.get(ORIGIN_HEADER) || null;
+    this.adminPass = req.headers.get(ADMIN_HEADER) || "";
     const path = url.pathname;
     const send = (b, s) => json(b, s, origin);
 
@@ -324,8 +353,10 @@ export default {
     const id = env.HUB.idFromName("hub");
 
     const headers = new Headers(req.headers);
-    headers.delete(ORIGIN_HEADER);            // never let a client set its own
+    headers.delete(ORIGIN_HEADER);            // never let a client set either
+    headers.delete(ADMIN_HEADER);
     if (origin) headers.set(ORIGIN_HEADER, origin);
+    if (env.ADMIN_PASS) headers.set(ADMIN_HEADER, env.ADMIN_PASS);
 
     // Read the body here rather than handing the object a stream. A route
     // that answers before touching the body - an unauthorised write, say -
