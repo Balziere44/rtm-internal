@@ -45,6 +45,40 @@ over SSE, with a bearer token kept in `rtm_auth_token_v1`. Writes need the
 token; reads do not. Notes are working commentary and never reach the public
 site.
 
+## Accounts
+
+Signing in puts a name on a note and guards against editing by accident. It is
+not security: the page is public and the account list travels inside it, so
+anyone who opens the tool can read the list. Closing the tool off is the
+hosting's job.
+
+Two stores, tried in that order:
+
+1. **The server**, `POST /auth/login` on the VPS, which returns the bearer
+   token the notes sync needs. It answers only browsers whose origin its CORS
+   allowlist names, and today that is the tool's old Vercel address and
+   nothing else.
+2. **The list in the file**, used when the server does not answer. Five
+   accounts sit in the bundle, and `window.RTM_USERS` at the top of
+   `index.html` adds to them.
+
+A browser blocked by CORS throws in exactly the same place a wrong password
+does, so the first version of this reported "Invalid username or password"
+whenever the tool was served from anywhere new - a correct password, a
+reachable server, and no way to tell from the screen. The fall-through is what
+that cost.
+
+To add somebody, put a line in `window.RTM_USERS` and push:
+
+    window.RTM_USERS = {
+      "Nome": "senha",
+    };
+
+Signed in against the list rather than the server, there is no token, so notes
+stay in that browser's localStorage and are not shared. Shared notes need the
+VPS to answer this origin - one line in its CORS allowlist - or a backend of
+our own.
+
 ## How it deploys
 
 Static, no build step. Cloudflare Pages: connect this repository, leave the
