@@ -1,0 +1,18 @@
+name = "rtm-internal-api"
+main = "worker.js"
+compatibility_date = "2026-08-01"
+
+# Which pages may talk to this server. The whole reason the tool moved off the
+# old VPS is that its list had one entry and could not be changed by us, so a
+# sign in failed everywhere the tool was hosted afterwards. Add an address
+# here and deploy; nothing else has to change.
+[vars]
+ALLOWED_ORIGINS = "https://balziere44.github.io,http://localhost:8788,http://127.0.0.1:8788"
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Hub"]

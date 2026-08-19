@@ -19,6 +19,8 @@ no longer a remote here and is not pushed to: a rebuilt tool arrives as a new
 | `index.html` | The whole tool. One file, ~2.4 MB. |
 | `builder.html` | The character builder, same shape. |
 | `sprites/` | Monster sprites by mob id, `.gif` / `.png` / `.webp`. |
+| `server/` | The backend: accounts, shared notes, live sync. |
+| `server/backup/` | The notes the old VPS held the day we moved off it. |
 
 `index.html` is a bundle, not a page anybody hand-edits. It carries a
 `<script type="__bundler/manifest">` holding every asset gzipped and base64'd
@@ -40,10 +42,13 @@ the resource is `const NAME=` followed by JSON.
 
 Croc edits the tool and commits the rebuilt `index.html`. Per-item and
 per-monster balance notes are not in the file at all - they live in
-localStorage and sync to `https://rtmrefuge.duckdns.org/notes/{item,mob,skill}`
+localStorage and sync to `/notes/{item,mob,skill}` on the server in `server/`,
 over SSE, with a bearer token kept in `rtm_auth_token_v1`. Writes need the
 token; reads do not. Notes are working commentary and never reach the public
 site.
+
+Until 19 Aug 2026 that server was a VPS belonging to somebody else, at
+`rtmrefuge.duckdns.org`. What it held on the day we left is in `server/backup/`.
 
 ## Accounts
 
@@ -54,13 +59,13 @@ hosting's job.
 
 Two stores, tried in that order:
 
-1. **The server**, `POST /auth/login` on the VPS, which returns the bearer
-   token the notes sync needs. It answers only browsers whose origin its CORS
-   allowlist names, and today that is the tool's old Vercel address and
-   nothing else.
+1. **The server** at `window.RTM_API_BASE`, `POST /auth/login`, which returns
+   the bearer token the notes sync needs. Ours is in `server/` - a Cloudflare
+   Worker, see its README. Accounts are made from inside the tool, by `Meta`.
 2. **The list in the file**, used when the server does not answer. Five
    accounts sit in the bundle, and `window.RTM_USERS` at the top of
-   `index.html` adds to them.
+   `index.html` adds to them. This is the way in when the server is down or
+   has not been deployed yet; notes taken this way stay in that browser.
 
 A browser blocked by CORS throws in exactly the same place a wrong password
 does, so the first version of this reported "Invalid username or password"
@@ -75,21 +80,26 @@ To add somebody, put a line in `window.RTM_USERS` and push:
     };
 
 Signed in against the list rather than the server, there is no token, so notes
-stay in that browser's localStorage and are not shared. Shared notes need the
-VPS to answer this origin - one line in its CORS allowlist - or a backend of
-our own.
+stay in that browser's localStorage and are not shared. Sharing needs the
+server, which is why `server/` exists.
 
 ## How it deploys
 
-Static, no build step. Cloudflare Pages: connect this repository, leave the
-build command empty, set the output directory to `/`. `_headers` marks
-everything `noindex` and stops browsers caching the HTML, so a reload always
-shows the last commit; `robots.txt` refuses crawlers.
+Static, no build step. It is served from GitHub Pages, at
+`balziere44.github.io/rtm-internal/`. `robots.txt` refuses crawlers. `_headers`
+is a Cloudflare Pages file and does nothing where it is now; it stays because
+moving to Cloudflare Pages is a matter of connecting the repository, with an
+empty build command and `/` as the output directory.
 
-Neither of those is access control. Anyone with the URL can open the tool, and
-the notes endpoint answers unauthenticated reads. If this has to be closed off,
-put Cloudflare Access in front of the project - that is the only thing here
-that actually gates it.
+Whichever of the two, neither is access control: anyone with the address opens
+the tool, and `GET /notes/*` answers without a token. Closing it off means
+Cloudflare Access in front of a Pages project, or a private repository on a
+paid GitHub plan. The account list is a name tag, not a lock - it never was
+one, and pretending otherwise is how the passwords ended up in a public file.
+
+Whatever address it ends up at has to be in `ALLOWED_ORIGINS` in
+`server/wrangler.toml`, or the browser will not let the page reach the server -
+which is the exact failure this whole move was about.
 
 To read it locally, serve the folder rather than opening the file directly:
 

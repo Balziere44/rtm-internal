@@ -1,0 +1,7 @@
+node_modules/
+.wrangler/
+dev.log
+sse.txt
+# Local-only secrets for `wrangler dev`. The real one is set with
+# `wrangler secret put ADMIN_PASS` and never lives in a file.
+.dev.vars

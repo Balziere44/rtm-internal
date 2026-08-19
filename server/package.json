@@ -1,0 +1,13 @@
+{
+  "name": "rtm-internal-api",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "import": "node import-notes.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}
