@@ -21,6 +21,7 @@ no longer a remote here and is not pushed to: a rebuilt tool arrives as a new
 | `sprites/` | Monster sprites by mob id, `.gif` / `.png` / `.webp`. |
 | `server/` | The backend: accounts, shared notes, live sync. |
 | `server/backup/` | The notes the old VPS held the day we moved off it. |
+| `tools/` | Scripts that patch the bundle. See below. |
 
 `index.html` is a bundle, not a page anybody hand-edits. It carries a
 `<script type="__bundler/manifest">` holding every asset gzipped and base64'd
@@ -104,6 +105,35 @@ which is the exact failure this whole move was about.
 To read it locally, serve the folder rather than opening the file directly:
 
     python -m http.server 8788
+
+## Patching the bundle
+
+`index.html` is a build artifact. Everything we add to it - the sign-in
+fall-through, the emulator numbers, the sprite path - is a patch applied to
+somebody else's output, and **a rebuilt tool arrives with all of it gone**.
+That is not a risk to be avoided, it is the normal case, so the patches are
+scripts rather than edits:
+
+    python tools/inject_stats.py
+
+Re-run it after every new `index.html`. It is idempotent, so running it when
+nothing needs doing costs a few seconds and changes no bytes.
+
+What it does: reads `../rtm-database/tools/data/stats.json` - the emulator's
+own numbers, which the public database keeps committed - and merges them into
+`MOBS` and `ITEMS`, then adds the cells that print them. Monsters gain EXP,
+JEXP, ATK, DEF and MDEF; equipment gains attack, defence, required level,
+slots, weight, equip slot and job list. It also repoints the sprites at this
+repository, which the bundle otherwise loads from the old account's GitHub
+Pages.
+
+Nothing flows the other way. Items, monsters, drops and skills are typed here
+and read *from* here; this only adds fields the public side owns.
+
+Where the two disagree, both are now on screen, which is the point: 104 items
+whose tooltip weight differs from the emulator's, 33 whose defence does, and
+30 whose required level does. Somebody has to decide which is right, and they
+cannot decide it while only one number is visible.
 
 ## Handing changes to the public database
 
