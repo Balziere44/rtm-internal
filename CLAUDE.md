@@ -109,31 +109,42 @@ To read it locally, serve the folder rather than opening the file directly:
 ## Patching the bundle
 
 `index.html` is a build artifact. Everything we add to it - the sign-in
-fall-through, the emulator numbers, the sprite path - is a patch applied to
-somebody else's output, and **a rebuilt tool arrives with all of it gone**.
-That is not a risk to be avoided, it is the normal case, so the patches are
-scripts rather than edits:
+fall-through, the emulator numbers, the items, the sprite path - is a patch
+applied to somebody else's output, and **a rebuilt tool arrives with all of it
+gone**. That is not a risk to be avoided, it is the normal case, so the patches
+are scripts rather than edits:
 
-    python tools/inject_stats.py
+    python tools/sync_data.py
 
 Re-run it after every new `index.html`. It is idempotent, so running it when
-nothing needs doing costs a few seconds and changes no bytes.
+nothing needs doing changes no bytes.
 
-What it does: reads `../rtm-database/tools/data/stats.json` - the emulator's
-own numbers, which the public database keeps committed - and merges them into
-`MOBS` and `ITEMS`, then adds the cells that print them. Monsters gain EXP,
-JEXP, ATK, DEF and MDEF; equipment gains attack, defence, required level,
-slots, weight, equip slot and job list. It also repoints the sprites at this
-repository, which the bundle otherwise loads from the old account's GitHub
-Pages.
+It reads the public database's finished tables - `db-items.json` and
+`db-mobs.json`, built from the client's GRFs and the emulator - and brings the
+tool level with them: adds the items it does not have, fills in level, weight,
+attack, defence, slots, refineability, equip slot and job list on the ones it
+does, gives monsters their experience and combat numbers, and adds the cells
+that print all of it. It also repoints the sprites at this repository, which
+the bundle otherwise loads from the old account's GitHub Pages.
+
+Run on 19 Aug 2026: 719 monsters updated, 2,583 items updated, **418 added**.
+Somebody asked why Bakefuda was missing; the answer was that 418 items were.
+
+Where the client tooltip and the emulator disagree about a number, the public
+side already prefers the tooltip - what the game does today - and taking its
+finished rows takes that decision with them.
 
 Nothing flows the other way. Items, monsters, drops and skills are typed here
-and read *from* here; this only adds fields the public side owns.
+and read *from* here.
 
-Where the two disagree, both are now on screen, which is the point: 104 items
-whose tooltip weight differs from the emulator's, 33 whose defence does, and
-30 whose required level does. Somebody has to decide which is right, and they
-cannot decide it while only one number is visible.
+### The names are still the client's
+
+The client truncates item names, so the tool says `AcidusSOrb` where the game
+says `Acidus Scale Orb`, and the public side keeps a table of 824 such
+corrections. The sync deliberately does **not** apply them: every balance note
+is filed under the name it was written against, so 824 renames would detach
+824 notes' worth of work. Fixing it properly means renaming the items and
+rewriting the note keys in the same pass, against the server, once.
 
 ## Handing changes to the public database
 
