@@ -137,6 +137,21 @@ finished rows takes that decision with them.
 Nothing flows the other way. Items, monsters, drops and skills are typed here
 and read *from* here.
 
+### Deleting your own notes
+
+The Noted tab lists everything anybody has written and used to be the one
+place none of it could be acted on: taking a note back meant finding the
+monster again in a list of seven hundred. Each card there now carries a small
+cross on **your** comments and on **your** flag votes, and an entry with
+nothing left in it disappears rather than staying as an empty card that still
+counts.
+
+Only your own. Somebody else's comment is theirs, and a vote count any reader
+can edit is not a vote count. Signed out, no crosses appear at all.
+
+The delete writes to localStorage, which is what the sync layer intercepts, so
+it reaches everybody else the same way writing a note does.
+
 ### The names are still the client's
 
 The client truncates item names, so the tool says `AcidusSOrb` where the game

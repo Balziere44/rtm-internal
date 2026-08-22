@@ -269,6 +269,139 @@ SPRITE_NEW = '"sprites/"'
 
 
 
+# ── deleting your own notes from the Noted tab ────────────────────────────
+#
+# The Noted tab is where you look at everything you have written, and it was
+# the one place you could not act on any of it: taking a note back meant
+# finding the monster again in a list of seven hundred. Everything needed to
+# fix that was already in the bundle - toggleFlagVote, userVoted,
+# getCurrentUser - and the tab just had no controls wired to it.
+#
+# Only your own. Somebody else's comment is theirs, and a vote count that any
+# reader can edit is not a vote count.
+
+NOTED_MARK = "/* delete your own - tools/sync_data.py */"
+
+NOTED_HELPER = """  const [section, setSection] = React.useState("skills");
+
+  """ + NOTED_MARK + """
+  const NOTE_STORES = {mob:"rtm_balance_notes_v1", skill:"rtm_skills_notes_v1", item:"rtm_items_notes_v1"};
+  function editNote(store, id, change){
+    const key = NOTE_STORES[store];
+    if(!key) return;
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem(key)||"{}") || {}; } catch(e) {}
+    const next = change(all[id] || {flags:{}, comments:[]});
+    const copy = Object.assign({}, all);
+    // An entry with nothing left in it is not an empty note, it is not a
+    // note. Leaving the key behind keeps the card on screen with nothing on
+    // it and keeps it counted in the tab's total.
+    if(!next || (!flagKeys(next.flags).length && !(next.comments||[]).length)) delete copy[id];
+    else copy[id] = next;
+    // Straight to localStorage: the sync layer intercepts the write and
+    // pushes it, so the other people looking at this see it go.
+    localStorage.setItem(key, JSON.stringify(copy));
+    const setter = {mob:setMobNotes, skill:setSkillNotes, item:setItemNotes}[store];
+    if(setter) setter(copy);
+  }
+"""
+
+NOTED_CARD = """  function Card({border, label, name, meta, flags, comments, badge, store, noteId}){
+    """ + NOTED_MARK + """
+    const me = getCurrentUser();
+    const mineFlags = flagKeys(flags).filter(f=>userVoted(flags, f, me));
+    const canEdit = !!me && !!store && noteId !== undefined && noteId !== null;
+    const xStyle = {
+      background:"transparent",border:"none",color:"#8a6e72",cursor:"pointer",
+      fontFamily:"var(--font-mono)",fontSize:"11px",lineHeight:1,padding:"0 2px"
+    };
+    return React.createElement("div",{style:{
+      background:"#2a1a1f",border:`1px solid ${border}`,
+      borderRadius:"4px",padding:"12px 14px",display:"flex",flexDirection:"column",gap:4
+    }},
+      React.createElement("div",{style:{fontFamily:"var(--font-heading)",fontSize:"9px",letterSpacing:"0.16em",textTransform:"uppercase",color:"var(--fg-faint)"}},label),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+        (function(){const __k=flagKeys(flags); return __k.length>0;})() && React.createElement("span",{style:{
+          width:8,height:8,borderRadius:"50%",background:FLAG_COLORS[flagKeys(flags)[0]]||"#888",
+          flexShrink:0,boxShadow:`0 0 4px ${FLAG_COLORS[flagKeys(flags)[0]]||"#888"}`
+        }}),
+        React.createElement("span",{style:{fontFamily:"var(--font-heading)",fontSize:"13px",fontWeight:700,color:"var(--fg-primary)"}},name),
+        badge
+      ),
+      meta && React.createElement("div",{style:{fontFamily:"var(--font-mono)",fontSize:"10px",color:"var(--fg-faint)"}},meta),
+      React.createElement(FlagPills,{flags}),
+
+      canEdit && mineFlags.length > 0 && React.createElement("div",{style:{display:"flex",gap:4,flexWrap:"wrap",marginTop:2,alignItems:"center"}},
+        React.createElement("span",{style:{fontFamily:"var(--font-mono)",fontSize:"9px",color:"#60464a"}},"your votes:"),
+        mineFlags.map(f=>React.createElement("button",{
+          key:f, title:"Remove your "+(FLAG_LABELS[f]||f)+" vote",
+          onClick:()=>editNote(store, noteId, n=>toggleFlagVote(n, f, me)),
+          style:Object.assign({}, xStyle, {
+            border:"1px solid oklch(40% 0.06 355/0.4)", borderRadius:"2px",
+            padding:"1px 6px", fontSize:"9px", letterSpacing:"0.08em",
+            textTransform:"uppercase", fontFamily:"var(--font-heading)"
+          })
+        }, "\\u00d7 "+(FLAG_LABELS[f]||f)))
+      ),
+
+      (comments && comments.length > 0) && React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:3,marginTop:4}},
+        comments.map((c,i)=>React.createElement("div",{key:i,style:{
+          background:"#1e0f13",borderRadius:"2px",padding:"5px 8px",
+          border:"1px solid oklch(40% 0.06 355/0.3)"
+        }},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+            React.createElement("div",{style:{flex:1,fontFamily:"var(--font-mono)",fontSize:"9px",color:"#60464a",marginBottom:2}},
+              "@"+c.author+" \\u00b7 "+(new Date(c.ts).toLocaleDateString())),
+            canEdit && me && c.author === me && React.createElement("button",{
+              title:"Delete this note of yours",
+              onClick:()=>{
+                if(!confirm("Delete your note on "+name+"?")) return;
+                editNote(store, noteId, n=>Object.assign({}, n, {
+                  comments:(n.comments||[]).filter((x,j)=>j!==i)
+                }));
+              },
+              style:xStyle
+            }, "\\u00d7")
+          ),
+          React.createElement("div",{style:{fontFamily:"var(--font-body)",fontSize:"12px",color:"#cebcbe",fontStyle:"italic"}},c.text)
+        ))
+      )
+    );
+  }"""
+
+# The three lists, each of which has to say which store its cards belong to.
+NOTED_SITES = [
+    ("notedSkills.map(({ck,cd,s,n})=>React.createElement(Card,{\n              key:ck+s.id,",
+     "notedSkills.map(({ck,cd,s,n})=>React.createElement(Card,{\n              key:ck+s.id, store:\"skill\", noteId:s.id,"),
+    ("notedItems.map(({it,n})=>React.createElement(Card,{\n              key:it.name,",
+     "notedItems.map(({it,n})=>React.createElement(Card,{\n              key:it.name, store:\"item\", noteId:it.name,"),
+    ("notedMobs.map(({m,n})=>React.createElement(Card,{\n              key:m.id,",
+     "notedMobs.map(({m,n})=>React.createElement(Card,{\n              key:m.id, store:\"mob\", noteId:m.id,"),
+]
+
+CARD_START = "  function Card({border, label, name, meta, flags, comments, badge}){"
+CARD_END = "React.createElement(Comments,{comments})\n    );\n  }"
+
+
+def patch_noted(text):
+    """Put a delete control on your own notes, in the tab that lists them."""
+    if NOTED_MARK in text:
+        return text, False
+    if CARD_START not in text or NOTED_HELPER.split("\n")[0] not in text:
+        raise SystemExit("the Noted tab moved - the tool was rebuilt differently "
+                         "and tools/sync_data.py needs looking at")
+    a = text.index(CARD_START)
+    b = text.index(CARD_END, a) + len(CARD_END)
+    text = text[:a] + NOTED_CARD + text[b:]
+    text = text.replace(NOTED_HELPER.split("\n")[0], NOTED_HELPER.rstrip("\n"), 1)
+    for old, new in NOTED_SITES:
+        if old not in text:
+            raise SystemExit("a Noted list moved - tools/sync_data.py needs "
+                             "looking at")
+        text = text.replace(old, new, 1)
+    return text, True
+
+
 def main():
     items_pub = load(ITEMS_JSON, "db-items.json")
     mobs_pub = load(MOBS_JSON, "db-mobs.json")
@@ -312,6 +445,9 @@ def main():
     patched, done = patch_ui(template, "item")
     if done:
         print("item card: added the numbers row")
+    patched, done = patch_noted(patched)
+    if done:
+        print("noted tab: your own notes and votes can be deleted there")
     if SPRITE_OLD in patched:
         patched = patched.replace(SPRITE_OLD, SPRITE_NEW)
         print("sprites: now read from this repository")
